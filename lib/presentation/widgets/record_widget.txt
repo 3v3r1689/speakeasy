@@ -1,0 +1,128 @@
+import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/material.dart';
+import 'package:record/record.dart';
+import 'package:path_provider/path_provider.dart';
+
+class RecordWidget extends StatefulWidget {
+  RecordWidget({super.key});
+
+  @override
+  State<RecordWidget> createState() => _RecordWidgetState();
+}
+
+class _RecordWidgetState extends State<RecordWidget> {
+  late AudioRecorder audioRecord;
+  late AudioPlayer audioPlayer;
+  bool _isRecording = false;
+  String _audioPath = '';
+
+  @override
+  void initState() {
+    audioRecord = AudioRecorder();
+    audioPlayer = AudioPlayer();
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    audioRecord.dispose();
+    audioPlayer.dispose();
+    super.dispose();
+  }
+
+  Future<void> _recording() async {
+    final appDocDir = await getApplicationDocumentsDirectory();
+    _audioPath =
+        '${appDocDir.path}/grabacion_${DateTime.now().millisecondsSinceEpoch}.wav';
+
+    try {
+      if (await audioRecord.hasPermission()) {
+        await audioRecord.start(const RecordConfig(), path: _audioPath);
+      }
+    } catch (e) {
+      print("Error al grabar $e");
+    }
+  }
+
+  Future<void> _stopping() async {
+    String? rPath = await audioRecord.stop();
+    print('Ruta de grabacion $rPath');
+    setState(() {
+      _audioPath = rPath!;
+    });
+    print("La ruta de reproduccion es ${_audioPath}");
+  }
+
+  Future<void> _playingRecording() async {
+    try {
+      print("Ruta de reproduccion de audio ${_audioPath}");
+      Source urlSource = UrlSource(_audioPath);
+      await audioPlayer.play(urlSource);
+    } catch (e) {
+      print("Error al reproducir $e");
+      openWarningSnackBar(context, String text) {
+        // This should be called by an on pressed function
+        // Example:
+        // Button(
+        //  onTap: (){
+        //    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        //   backgroundColor: Colors.blue,
+        //   content: Text("Your Text"),
+        //   duration: Duration(milliseconds: 1500),
+        // ));
+        // }
+        //)
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          backgroundColor: Colors.yellow,
+          content: Row(
+            children: [
+              Icon(
+                Icons.warning,
+                color: Colors.black,
+              ),
+              SizedBox(
+                width: 5,
+              ),
+              Text(
+                "Warning",
+                style: TextStyle(fontSize: 16, color: Colors.black),
+              ),
+            ],
+          ),
+          duration: Duration(milliseconds: 12500),
+        ));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        FloatingActionButton(
+          onPressed: () {
+            _isRecording = !_isRecording;
+            if (_isRecording) {
+              _recording();
+            } else {
+              _stopping();
+            }
+            audioRecord.dispose;
+            setState(() {});
+          },
+          backgroundColor: _isRecording ? Colors.red : Colors.green,
+          child:
+              Icon(_isRecording ? Icons.stop : Icons.mic, color: Colors.white),
+        ),
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 4.0),
+        ),
+        FloatingActionButton(
+          onPressed: _playingRecording,
+          child: const Icon(Icons.play_arrow_rounded),
+        )
+      ],
+    );
+  }
+}
